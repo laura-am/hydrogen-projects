@@ -50,3 +50,16 @@ headers <- map_chr(seq_len(length(head1)), ~{
 
 data <- readxl::read_excel("Hydrogen projects database public version.xlsx", 
                            sheet = "Projects", skip = 4, col_names = headers)
+
+cols_excluded <- c("Project name", "Technology Comments", "Announced Size", "Refs")
+
+data_v1 <- data %>%
+  select(headers[!(c(headers %in% cols_excluded))]) %>%
+  mutate_if(
+      is.character, as.factor
+  )
+
+
+
+
+
