@@ -55,11 +55,38 @@ cols_excluded <- c("Project name", "Technology Comments", "Announced Size", "Ref
 
 data_v1 <- data %>%
   select(headers[!(c(headers %in% cols_excluded))]) %>%
-  mutate_if(
-      is.character, as.factor
-  )
+  mutate(Country = strsplit(Country, "\\r\\n")) %>%
+  unnest(Country) %>%
+  filter(!is.na(`Type of electricity (for electrolysis projects)`),
+         !is.na(Country)) %>%
+  mutate_if(is.character, as.factor)
+levels(data_v1$`Type of electricity (for electrolysis projects)`) <- list(
+  "Dedicated renewable" = "Dedicated renewable",
+  "Grid" = "Grid",
+  "Grid (excess renewable)" = "Grid (excess renewable)",
+  "N/A" = "N/A",
+  "Nuclear" = "Nuclear",
+  "Other/Unknown" = "Other/unknown",
+  "Other/Unknown" = "Other/Unknown"
+)
 
+data_v1 %>%
+  group_by(`Type of electricity (for electrolysis projects)`) %>%
+  summarize(n = n())
 
+data_v2 <- data_v1 %>%
+  filter(`Type of electricity (for electrolysis projects)` == "Dedicated renewable",
+         !(`If dedicated renewables, type of renewable` %in% c("Unknown", NA))) %>%
+  group_by(Country, `If dedicated renewables, type of renewable`) %>%
+  summarize(n = n())
+
+data_v3 <- data_v1 %>%
+  select(Country, Technology, Product, starts_with("End use")) %>%
+  pivot_longer(cols = -c("Country", "Technology", "Product"),
+               names_to = "End use",
+               names_transform = list("End use" = as.factor),
+               values_to = "values") %>%
+  mutate("End use" = gsub("End use_", "", `End use`))
 
 
 
