@@ -11,7 +11,9 @@ res_dir_path <- paste0(main_dir, "/", "Elab")
 #----------------------------
 libs <- c(
   "readxl", "tidyverse", "dplyr",
-  "ggplot2", "maps", "sp", "maptools"
+  "ggplot2", "maps", "sp", 
+  "maptools", "ggsci", "extrafont",
+  "networkD3"
 )
 installed_libs <- libs %in% rownames(installed.packages())
 if (any(installed_libs == F)){
@@ -74,6 +76,19 @@ levels(data_v1$`Type of electricity (for electrolysis projects)`) <- list(
 )
 colnames(data_v1)[7:8] <- c("Type_electricity", "Type_renewable")
 
+levels(data_v1$Technology) <- list(
+  "Alkaline electrolysis" = "ALK",
+  "Biomass" = "Biomass",
+  "Biomass" = "Biomass w CCUS",
+  "Fossil Fuel & CCUS" = "Coal w CCUS",
+  "Fossil Fuel & CCUS" = "NG w CCUS",
+  "Fossil Fuel & CCUS" = "Oil w CCUS",
+  "Other" = "Other",
+  "Other Electrolysis" = "Other Electrolysis",
+  "PEM" = "PEM",
+  "SOEC" = "SOEC"
+)
+
 # 3. QUESTIONS
 #-------------
 
@@ -103,19 +118,6 @@ data_v2 <- data_v1 %>%
   group_by(Technology, Type_electricity) %>%
   summarize(n = n())
 
-levels(data_v2$Technology) <- list(
-  "Alkaline electrolysis" = "ALK",
-  "Biomass" = "Biomass",
-  "Biomass" = "Biomass w CCUS",
-  "Fossil Fuel & CCUS" = "Coal w CCUS",
-  "Fossil Fuel & CCUS" = "NG w CCUS",
-  "Fossil Fuel & CCUS" = "Oil w CCUS",
-  "Other" = "Other",
-  "Other Electrolysis" = "Other Electrolysis",
-  "PEM" = "PEM",
-  "SOEC" = "SOEC"
-  )
-
 ## Sankey plot
 nodes <- data.frame(
   name = c(as.character(data_v2$Type_electricity), 
@@ -139,6 +141,18 @@ data_v3 <- data_v1 %>%
   group_by(Country, Type_electricity) %>%
   summarize(n = n())
 
+levels(data_v3$Type_electricity) <- c(
+  "Grid" = "Grid",
+  "Grid (excess renewable)" = "Grid (excess renewable)",
+  "Hydropower" = "Hydropower",
+  "Nuclear" = "Nuclear",
+  "Offshore wind" = "Offshore wind",
+  "Onshore wind" = "Onshore wind",
+  "Others" = "Other/Unknown", 
+  "Others" = "Other/Various", 
+  "Solar PV" = "Solar PV"
+)
+
 world <- map('world', fill = T, col = "transparent", plot = F)
 IDs <- sapply(strsplit(world$names, ":"), function(x) x[1])
 world_sp <- map2SpatialPolygons(world, IDs=IDs,
@@ -154,46 +168,103 @@ world.label <- data.frame(
     country == "USA" ~"United States",
     TRUE ~country
   ))
-names(world.label) <- c("country", "Long", "Lat")
-
-
-
-
+names(world.label) <- c("country", "Long.Centr", "Lat.Centr")
 
 countries <- readxl::read_excel("Hydrogen projects database public version.xlsx", 
                                 sheet = "Countries") %>%
-  left_join(y = world, by = c("Country" = "region"))
+  left_join(y = world.label, by = c("Country" = "country"))
 
 data_v3 <- left_join(x = data_v3, y = countries,
                      by = c("Country" = "ISO-3 Code")) %>%
-  arrange(desc(n))
+  arrange(desc(n)) %>%
+  filter(Type_electricity %in% c("Grid (excess renewable)", "Hydropower", "Nuclear", "Offshore wind", "Onshore wind", "Solar PV"))
 
+loadfonts()
+mybreaks <- c(1, 4, 10, 14, 20, 24)
+mycolors <- c("Grid (excess renewable)" = "#A20056FF", 
+              "Hydropower" = "#0C88CA",
+              "Nuclear" = "#631879FF", 
+              "Offshore wind" = "#008280FF", 
+              "Onshore wind" = "#5C871A",
+              "Solar PV" = "#F68C1B") %>% as.list()
 
 ggplot() +
-  geom_polygon(data = countries, aes(x = long, 
-                                     y = lat, 
-                                     group = group),
+  geom_polygon(data = world_sp, aes(x = long, y = lat, group = group),
                fill = "grey") +
-  geom_point(data = data_v3, aes(x = long, 
-                                 y = lat, 
-                                 size = n, 
-                                 color = Type_electricity)) +
-  scale_size_continuous() +
-  scale_color_viridis_c() +
+  geom_point(data = data_v3, 
+             aes(x = Long.Centr, y = Lat.Centr, 
+                 size = as.numeric(n), color = Type_electricity)) +
+  scale_size_continuous(
+    name = "Number of projects",
+    range = c(1, 10),
+    breaks = mybreaks
+  ) +
+  scale_color_manual(
+    name = "Type of electricity",
+    values = mycolors,
+  ) +
+  facet_wrap(~Type_electricity) +
+  guides(color = "none", 
+         size = guide_legend(title.position = "top",
+                             title.hjust = .5,
+                             nrow = 1,
+                             byrow = T)) +
   theme_void() +
-  coord_map(xlim = c(-180, 180))
+  coord_map(xlim = c(-180, 180), ylim = c(70,-70)) +
+  ggtitle("TYPE OF ELECTRICITY USED TO GENERATE HYDROGEN IN PROJECTS") +
+  theme(
+    legend.position = "bottom",
+    legend.box = "vertical",
+    legend.title = element_text(
+      size = 11, color = "grey10", family = "Microsoft JhengHei"),
+    legend.text = element_text(
+      size = 10, color = "grey10", family = "Microsoft JhengHei"),
+    text = element_text(color = "#22211d", size = 12,
+                        family =  "Microsoft JhengHei",
+                        vjust = 1.5),
+    panel.spacing.y = unit(0.4, "cm"),
+    plot.background = element_rect(fill = "#f5f5f2", color = NA),
+    panel.background = element_rect(fill = "#f5f5f2", color = NA), 
+    legend.background = element_rect(fill = "#f5f5f2", color = NA),
+    plot.margin = margin(t = 0.5, r = 0, b = 0.4, l = 0, unit = "cm"),
+    plot.title = element_text(
+      size= 16, 
+      hjust=0.5, 
+      color = "#4e4d47", 
+      margin = margin(b = 0.5, t = 0.4, l = 2, unit = "cm"),
+      family =  "Microsoft JhengHei"
+  ),
+  plot.caption = element_text(hjust = 0, family = "Microsoft JhengHei", size = 8)) +
+  labs(
+    #caption = "©2023 Laura Arévalo (https://github.com/laura-am) | Data: IEA - Hidrogen Projects Database"
+  )
 
-#End uses categorized by country
-data_v3 <- data_v1 %>%
-  select(Country, Technology, Product, starts_with("End use")) %>%
-  pivot_longer(cols = -c("Country", "Technology", "Product"),
+#End uses categorized by technology
+data_v4 <- data_v1 %>%
+  select(Technology, starts_with("End use")) %>%
+  pivot_longer(cols = -c("Technology"),
                names_to = "End use",
-               names_transform = list("End use" = as.factor),
                values_to = "values") %>%
-  mutate("End use" = gsub("End use_", "", `End use`)) %>%
+  mutate("End use" = gsub("End use_",  "", `End use`)) %>%
   filter(!is.na(values)) %>%
-  group_by(Country, Technology, Product, `End use`) %>%
+  group_by(Technology, `End use`) %>%
   summarize(Total = sum(values, na.rm = T))
+
+nodes <- data.frame(
+  name = c(as.character(data_v4$Technology), 
+           as.character(data_v4$`End use`))
+) %>% unique()
+
+data_v4$IDsource = match(data_v4$Technology, nodes$name) - 1
+data_v4$IDtarget = match(data_v4$`End use`, nodes$name) -1
+
+ColourScal ='d3.scaleOrdinal() .range(["#FDE725FF","#B4DE2CFF","#6DCD59FF","#35B779FF","#1F9E89FF","#26828EFF","#31688EFF","#3E4A89FF","#482878FF","#440154FF"])'
+
+sankeyNetwork(Links = data_v4, Nodes = nodes,
+              Source = "IDsource", Target = "IDtarget",
+              Value = "Total", NodeID = "name", 
+              sinksRight=FALSE, colourScale=ColourScal, nodeWidth=40, fontSize=12, nodePadding=10)
+
 
 # How much capacity is asset to each use
 data_v4 <- data_v1 %>%
