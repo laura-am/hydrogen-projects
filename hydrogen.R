@@ -127,7 +127,10 @@ nodes <- data.frame(
 data_v2$IDsource = match(data_v2$Type_electricity, nodes$name) - 1
 data_v2$IDtarget = match(data_v2$Technology, nodes$name) -1
 
-ColourScal ='d3.scaleOrdinal() .range(["#FDE725FF","#B4DE2CFF","#6DCD59FF","#35B779FF","#1F9E89FF","#26828EFF","#31688EFF","#3E4A89FF","#482878FF","#440154FF"])'
+ColourScal ='d3.scaleOrdinal() .range(["#FDE725FF","#B4DE2CFF","#6DCD59FF",
+"#35B779FF","#1F9E89FF","#26828EFF",
+"#31688EFF","#3E4A89FF","#482878FF",
+"#440154FF"])'
 
 sankeyNetwork(Links = data_v2, Nodes = nodes,
               Source = "IDsource", Target = "IDtarget",
@@ -135,23 +138,23 @@ sankeyNetwork(Links = data_v2, Nodes = nodes,
               sinksRight=FALSE, colourScale=ColourScal, nodeWidth=40, fontSize=12, nodePadding=5)
 
 ## Bubble map
-data_v3 <- data_v1 %>%
-  filter(!(Type_renewable %in% c("Unknown", NA))) %>%
-  mutate(Type_electricity = as.factor(ifelse(Type_electricity == "Dedicated renewable", as.character(Type_renewable), as.character(Type_electricity)))) %>%
-  group_by(Country, Type_electricity) %>%
-  summarize(n = n())
-
-levels(data_v3$Type_electricity) <- c(
+levels(data_v1$Type_electricity) <- c(
   "Grid" = "Grid",
   "Grid (excess renewable)" = "Grid (excess renewable)",
   "Hydropower" = "Hydropower",
   "Nuclear" = "Nuclear",
   "Offshore wind" = "Offshore wind",
   "Onshore wind" = "Onshore wind",
-  "Others" = "Other/Unknown", 
-  "Others" = "Other/Various", 
+  "Other/Unknown" = "Others", 
+  "Other/Various" = "Others", 
   "Solar PV" = "Solar PV"
 )
+
+data_v3 <- data_v1 %>%
+  filter(!(Type_renewable %in% c("Unknown", NA))) %>%
+  mutate(Type_electricity = as.factor(ifelse(Type_electricity == "Dedicated renewable", as.character(Type_renewable), as.character(Type_electricity)))) %>%
+  group_by(Country, Type_electricity) %>%
+  summarize(n = n())
 
 world <- map('world', fill = T, col = "transparent", plot = F)
 IDs <- sapply(strsplit(world$names, ":"), function(x) x[1])
@@ -177,11 +180,11 @@ countries <- readxl::read_excel("Hydrogen projects database public version.xlsx"
 data_v3 <- left_join(x = data_v3, y = countries,
                      by = c("Country" = "ISO-3 Code")) %>%
   arrange(desc(n)) %>%
-  filter(Type_electricity %in% c("Grid (excess renewable)", "Hydropower", "Nuclear", "Offshore wind", "Onshore wind", "Solar PV"))
+  filter(Type_electricity %in% c("Hydropower", "Nuclear", "Offshore wind", "Onshore wind", "Solar PV", "Others"))
 
-loadfonts()
+#loadfonts()
 mybreaks <- c(1, 4, 10, 14, 20, 24)
-mycolors <- c("Grid (excess renewable)" = "#A20056FF", 
+mycolors <- c("Others" = "#A20056FF", 
               "Hydropower" = "#0C88CA",
               "Nuclear" = "#631879FF", 
               "Offshore wind" = "#008280FF", 
@@ -190,10 +193,10 @@ mycolors <- c("Grid (excess renewable)" = "#A20056FF",
 
 ggplot() +
   geom_polygon(data = world_sp, aes(x = long, y = lat, group = group),
-               fill = "grey") +
+               fill = "grey", color = "grey30", linewidth = 0.1) +
   geom_point(data = data_v3, 
              aes(x = Long.Centr, y = Lat.Centr, 
-                 size = as.numeric(n), color = Type_electricity)) +
+                 size = as.numeric(n), color = Type_electricity, alpha = 0.6)) +
   scale_size_continuous(
     name = "Number of projects",
     range = c(1, 10),
@@ -223,9 +226,9 @@ ggplot() +
                         family =  "Microsoft JhengHei",
                         vjust = 1.5),
     panel.spacing.y = unit(0.4, "cm"),
-    plot.background = element_rect(fill = "#f5f5f2", color = NA),
+    #plot.background = element_rect(fill = "#f5f5f2", color = NA),
     panel.background = element_rect(fill = "#f5f5f2", color = NA), 
-    legend.background = element_rect(fill = "#f5f5f2", color = NA),
+    #legend.background = element_rect(fill = "#f5f5f2", color = NA),
     plot.margin = margin(t = 0.5, r = 0, b = 0.4, l = 0, unit = "cm"),
     plot.title = element_text(
       size= 16, 
@@ -236,7 +239,7 @@ ggplot() +
   ),
   plot.caption = element_text(hjust = 0, family = "Microsoft JhengHei", size = 8)) +
   labs(
-    #caption = "©2023 Laura Arévalo (https://github.com/laura-am) | Data: IEA - Hidrogen Projects Database"
+    caption = "Source: IEA (2021), Hydrogen Projects Database, https://www.iea.org/reports/hydrogen-projects-database. All rights reserved."
   )
 
 #End uses categorized by technology
@@ -258,7 +261,7 @@ nodes <- data.frame(
 data_v4$IDsource = match(data_v4$Technology, nodes$name) - 1
 data_v4$IDtarget = match(data_v4$`End use`, nodes$name) -1
 
-ColourScal ='d3.scaleOrdinal() .range(["#FDE725FF","#B4DE2CFF","#6DCD59FF","#35B779FF","#1F9E89FF","#26828EFF","#31688EFF","#3E4A89FF","#482878FF","#440154FF"])'
+ColourScal ='d3.scaleOrdinal() .range(["#0B1831","#0F60E4","#D3BE99","#778C63","#447454","#0F3868"])'
 
 sankeyNetwork(Links = data_v4, Nodes = nodes,
               Source = "IDsource", Target = "IDtarget",
